@@ -1,0 +1,599 @@
+
+
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Topu Yakala Oyunu</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+
+    h1 {
+      text-align: center;
+      margin-top: 20px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 1.5em;
+    }
+
+    #menuIcon {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 30px;
+      cursor: pointer;
+      z-index: 10;
+      color: white;
+    }
+
+    #sidePanel {
+      position: fixed;
+      top: 0;
+      left: -200px;
+      width: 200px;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+      transition: left 0.3s;
+      padding: 20px;
+      z-index: 9;
+      box-shadow: 5px 0px 15px rgba(0,0,0,0.5);
+    }
+
+    #sidePanel.open {
+      left: 0;
+    }
+
+    #sidePanel ul {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    #sidePanel ul li {
+      margin: 20px 0;
+      font-size: 1.2em;
+      cursor: pointer;
+    }
+
+    #gameArea {
+      position: relative;
+      width: 100vw;
+      height: 70vh;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      margin: 20px auto;
+      background: rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      border-radius: 10px;
+    }
+
+    #ball {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-color: red;
+      cursor: pointer;
+      transition: transform 0.1s;
+      z-index: 2;
+    }
+
+    #score, #timer {
+      text-align: center;
+      font-size: 1.5em;
+      margin: 5px;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    #startBtn, #resetBtn {
+      display: block;
+      margin: 10px auto;
+      padding: 10px 20px;
+      font-size: 1.1em;
+      background-color: #00bcd4;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      cursor: pointer;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    #startBtn:hover, #resetBtn:hover {
+      background-color: #008c9e;
+    }
+
+    #araz {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 1em;
+      font-weight: bold;
+      color: white;
+      animation: rgbText 2s infinite alternate;
+    }
+
+    @keyframes rgbText {
+      0% { color: red; }
+      25% { color: green; }
+      50% { color: blue; }
+      75% { color: yellow; }
+      100% { color: purple; }
+    }
+
+    .light-theme {
+      background: linear-gradient(135deg, #ff7e5f, #feb47b);
+      color: white;
+    }
+
+    .dark-theme {
+      background: linear-gradient(135deg, #00bcd4, #1e2a3a);
+      color: white;
+    }
+
+    .blue-theme {
+      background: linear-gradient(135deg, #00416a, #e4e5e6);
+      color: black;
+    }
+
+  </style>
+</head>
+<body class="light-theme">
+
+  <div id="menuIcon">&#9776;</div>
+  <div id="sidePanel">
+    <ul>
+      <li id="themeBtn">Tema Seç</li>
+      <li id="musicBtn">Müzik: Kapalı</li>
+    </ul>
+  </div>
+
+  <div id="araz">ARAZ</div>
+
+  <h1>Topu Yakala!</h1>
+  <button id="startBtn">Oyuna Başla</button>
+  <button id="resetBtn" style="display:none;">Sıfırla</button>
+  <div id="timer">Süre: 60</div>
+  <div id="score">Puan: 0</div>
+  <div id="gameArea">
+    <div id="ball" style="display:none;"></div>
+  </div>
+
+  <audio id="gameMusic" src="Pnl_Uranus.mp3" preload="auto" loop></audio>
+  <audio id="winSound" src="yay.mp3" preload="auto"></audio>
+
+  <script>
+    const ball = document.getElementById("ball");
+    const gameArea = document.getElementById("gameArea");
+    const scoreDisplay = document.getElementById("score");
+    const timerDisplay = document.getElementById("timer");
+    const startBtn = document.getElementById("startBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const winSound = document.getElementById("winSound");
+    const sidePanel = document.getElementById("sidePanel");
+    const menuIcon = document.getElementById("menuIcon");
+    const themeBtn = document.getElementById("themeBtn");
+    const musicBtn = document.getElementById("musicBtn");
+    const gameMusic = document.getElementById("gameMusic");
+
+    let score = 0;
+    let timeLeft = 60;
+    let gameInterval, timerInterval;
+    let gameActive = false;
+    let isMusicOn = false;
+
+    // Menü
+    menuIcon.addEventListener("click", () => sidePanel.classList.toggle("open"));
+    
+    // Tema
+    themeBtn.addEventListener("click", () => {
+      let currentTheme = document.body.classList;
+      if (currentTheme.contains('light-theme')) {
+        currentTheme.remove('light-theme');
+        currentTheme.add('dark-theme');
+      } else if (currentTheme.contains('dark-theme')) {
+        currentTheme.remove('dark-theme');
+        currentTheme.add('blue-theme');
+      } else {
+        currentTheme.remove('blue-theme');
+        currentTheme.add('light-theme');
+      }
+    });
+
+    // Müzik açma/kapama
+    musicBtn.addEventListener("click", () => {
+      if (isMusicOn) {
+        gameMusic.pause();
+        musicBtn.textContent = "Müzik: Kapalı";
+      } else {
+        gameMusic.play();
+        musicBtn.textContent = "Müzik: Açık";
+      }
+      isMusicOn = !isMusicOn;
+    });
+
+    // Rastgele pozisyon
+    function getRandomPosition() {
+      const areaWidth = gameArea.clientWidth;
+      const areaHeight = gameArea.clientHeight;
+      const x = Math.random() * (areaWidth - 50);
+      const y = Math.random() * (areaHeight - 50);
+      return { x, y };
+    }
+
+    function moveBall() {
+      if (!gameActive) return;
+      const pos = getRandomPosition();
+      ball.style.left = pos.x + "px";
+      ball.style.top = pos.y + "px";
+    }
+
+    function startGame() {
+      score = 0;
+      timeLeft = 60;
+      scoreDisplay.textContent = "Puan: 0";
+      timerDisplay.textContent = "Süre: 60";
+      ball.style.display = "block";
+      gameActive = true;
+      moveBall();
+
+      // Önceki interval'i temizle
+      if (gameInterval) {
+        clearInterval(gameInterval);
+      }
+
+      // Hız sabit
+      gameInterval = setInterval(moveBall, 1000); // Sabit hız
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = "Süre: " + timeLeft;
+        if (timeLeft === 0) endGame();
+      }, 1000);
+
+      startBtn.disabled = true;
+      resetBtn.style.display = "block";
+    }
+
+    function endGame() {
+      gameActive = false;
+      clearInterval(gameInterval);
+      clearInterval(timerInterval);
+      alert("Zaman doldu! Puanınız: " + score);
+      resetBtn.style.display = "block";
+    }
+
+    ball.addEventListener("click", () => {
+      if (gameActive) {
+        score++;
+        scoreDisplay.textContent = "Puan: " + score;
+      }
+    });
+
+    startBtn.addEventListener("click", startGame);
+
+    resetBtn.addEventListener("click", () => {
+      score = 0;
+      timeLeft = 60;
+      scoreDisplay.textContent = "Puan: 0";
+      timerDisplay.textContent = "Süre: 60";
+      resetBtn.style.display = "none";
+      startBtn.disabled = false;
+    });
+  </script>
+
+</body>
+</html>
+
+<script>
+  window.onload = function () {
+    const kod = prompt("Giriş kodunu girin:");
+    if (kod !== "arazcheck") {
+      alert("Doğrulama başarısız! Sayfaya erişim reddedildi.");
+      document.body.innerHTML = "<h1 style='text-align:center;color:red;margin-top:20%;'>---Erişim Engellendi--- ŞİFREYİ ÖGREN GEL</h1>";
+    }
+  };
+</script>
+
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Topu Yakala Oyunu</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    h1 {
+      text-align: center;
+      margin-top: 20px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 1.5em;
+    }
+
+    #menuIcon {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 30px;
+      cursor: pointer;
+      z-index: 10;
+      color: white;
+    }
+
+    #sidePanel {
+      position: fixed;
+      top: 0;
+      left: -200px;
+      width: 200px;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+      transition: left 0.3s;
+      padding: 20px;
+      z-index: 9;
+      box-shadow: 5px 0px 15px rgba(0,0,0,0.5); /* Panelin sağ tarafına gölge ekledim */
+    }
+
+    #sidePanel.open {
+      left: 0;
+    }
+
+    #sidePanel ul {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    #sidePanel ul li {
+      margin: 20px 0;
+      font-size: 1.2em;
+      cursor: pointer;
+    }
+
+    #gameArea {
+      position: relative;
+      width: 100vw;
+      height: 70vh;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      margin: 20px auto;
+      background: rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      border-radius: 10px;
+    }
+
+    #ball {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-color: red;
+      cursor: pointer;
+      transition: transform 0.1s;
+      z-index: 2;
+    }
+
+    #score, #timer {
+      text-align: center;
+      font-size: 1.5em;
+      margin: 5px;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    #startBtn, #resetBtn {
+      display: block;
+      margin: 10px auto;
+      padding: 10px 20px;
+      font-size: 1.1em;
+      background-color: #00bcd4;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      cursor: pointer;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    #startBtn:hover, #resetBtn:hover {
+      background-color: #008c9e;
+    }
+
+    #araz {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 1em; /* Küçültülmüş yazı boyutu */
+      font-weight: bold;
+      color: white;
+      animation: rgbText 2s infinite alternate;
+    }
+
+    @keyframes rgbText {
+      0% { color: red; }
+      25% { color: green; }
+      50% { color: blue; }
+      75% { color: yellow; }
+      100% { color: purple; }
+    }
+
+    /* Temalar */
+    .light-theme {
+      background: linear-gradient(135deg, #ff7e5f, #feb47b);
+      color: white;
+    }
+
+    .dark-theme {
+      background: linear-gradient(135deg, #00bcd4, #1e2a3a);
+      color: white;
+    }
+
+    .blue-theme {
+      background: linear-gradient(135deg, #00416a, #e4e5e6);
+      color: black;
+    }
+
+  </style>
+</head>
+<body class="light-theme">
+
+  <div id="menuIcon">&#9776;</div>
+  <div id="sidePanel">
+    <ul>
+      <li id="themeBtn">Tema Seç</li>
+      <li id="musicBtn">Müzik: Kapalı</li>
+    </ul>
+  </div>
+
+  <div id="araz">ARAZ</div>
+
+  <h1>Topu Yakala!</h1>
+  <button id="startBtn">Oyuna Başla</button>
+  <button id="resetBtn" style="display:none;">Sıfırla</button>
+  <div id="timer">Süre: 60</div>
+  <div id="score">Puan: 0</div>
+  <div id="gameArea">
+    <div id="ball" style="display:none;"></div>
+  </div>
+
+  <!-- Müzik Kaynağı -->
+  <audio id="gameMusic" src="Pnl_Uranus.mp3" preload="auto" loop></audio> <!-- Pnl Uranüs müzik dosyasını ekledim -->
+
+  <audio id="winSound" src="yay.mp3" preload="auto"></audio>
+
+  <script>
+    const ball = document.getElementById("ball");
+    const gameArea = document.getElementById("gameArea");
+    const scoreDisplay = document.getElementById("score");
+    const timerDisplay = document.getElementById("timer");
+    const startBtn = document.getElementById("startBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const winSound = document.getElementById("winSound");
+    const sidePanel = document.getElementById("sidePanel");
+    const menuIcon = document.getElementById("menuIcon");
+    const themeBtn = document.getElementById("themeBtn");
+    const musicBtn = document.getElementById("musicBtn");
+    const gameMusic = document.getElementById("gameMusic");
+
+    let score = 0;
+    let timeLeft = 60;
+    let gameInterval, timerInterval;
+    let gameActive = false;
+    let isMusicOn = false;
+
+    // Menüyü açıp kapat
+    menuIcon.addEventListener("click", () => {
+      sidePanel.classList.toggle("open");
+    });
+
+    // Tema değiştir
+    themeBtn.addEventListener("click", () => {
+      let currentTheme = document.body.classList;
+      if (currentTheme.contains('light-theme')) {
+        currentTheme.remove('light-theme');
+        currentTheme.add('dark-theme');
+      } else if (currentTheme.contains('dark-theme')) {
+        currentTheme.remove('dark-theme');
+        currentTheme.add('blue-theme');
+      } else {
+        currentTheme.remove('blue-theme');
+        currentTheme.add('light-theme');
+      }
+    });
+
+    // Müzik açma/kapama
+    musicBtn.addEventListener("click", () => {
+      if (isMusicOn) {
+        gameMusic.pause();
+        musicBtn.textContent = "Müzik: Kapalı";
+      } else {
+        gameMusic.play();
+        musicBtn.textContent = "Müzik: Açık";
+      }
+      isMusicOn = !isMusicOn;
+    });
+
+    function getRandomPosition() {
+      const areaWidth = gameArea.clientWidth;
+      const areaHeight = gameArea.clientHeight;
+      const x = Math.random() * (areaWidth - 50);
+      const y = Math.random() * (areaHeight - 50);
+      return { x, y };
+    }
+
+    function moveBall() {
+      if (!gameActive) return;
+      const pos = getRandomPosition();
+      ball.style.left = pos.x + "px";
+      ball.style.top = pos.y + "px";
+    }
+
+    function increaseBallSpeed() {
+      if (timeLeft <= 25) {
+        return 700; // Süre 25'in altına düştüğünde hız arttırılır (daha hızlı)
+      }
+      return 1000; // Başlangıç hızı
+    }
+
+    function startGame() {
+      score = 0;
+      timeLeft = 60;
+      scoreDisplay.textContent = "Puan: 0";
+      timerDisplay.textContent = "Süre: 60";
+      ball.style.display = "block";
+      gameActive = true;
+      moveBall();
+      gameInterval = setInterval(moveBall, increaseBallSpeed()); // Top hızını artırmak için fonksiyon kullanılıyor
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = "Süre: " + timeLeft;
+        if (timeLeft === 0) endGame();
+        // Zaman 25'in altına düştüğünde hızlandır
+        if (timeLeft <= 25 && gameInterval) {
+          clearInterval(gameInterval);
+          gameInterval = setInterval(moveBall, increaseBallSpeed());
+        }
+      }, 1000);
+      startBtn.disabled = true;
+      resetBtn.style.display = "block";
+    }
+
+    function endGame() {
+      gameActive = false;
+      clearInterval(gameInterval);
+      clearInterval(timerInterval);
+      alert("Zaman doldu! Puanınız: " + score);
+      resetBtn.style.display = "block";
+    }
+
+    ball.addEventListener("click", () => {
+      if (gameActive) {
+        score++;
+        scoreDisplay.textContent = "Puan: " + score;
+      }
+    });
+
+    startBtn.addEventListener("click", startGame);
+
+    resetBtn.addEventListener("click", () => {
+      score = 0;
+      timeLeft = 60;
+      scoreDisplay.textContent = "Puan: 0";
+      timerDisplay.textContent = "Süre: 60";
+      resetBtn.style.display = "none";
+      startBtn.disabled = false;
+    });
+
+  </script>
+
+</body>
+</html>
